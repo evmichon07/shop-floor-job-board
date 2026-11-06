@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shop Floor Job Board (sample data)</title>
+<style>
+  :root { --bg:#0f1418; --panel:#171e24; --line:#26313a; --text:#e6edf3; --muted:#8b98a5;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#58a6ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.4 "Segoe UI",system-ui,sans-serif; }
+  header { display:flex; justify-content:space-between; align-items:baseline; padding:20px 28px 8px; }
+  h1 { margin:0; font-size:22px; font-weight:600; }
+  .sub { color:var(--muted); font-size:13px; }
+  .kpis { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; padding:12px 28px; }
+  .kpi { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  .kpi .v { font-size:28px; font-weight:600; margin-top:4px; }
+  .kpi .l { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.05em; }
+  main { display:grid; grid-template-columns:2.1fr 1fr; gap:14px; padding:4px 28px 24px; }
+  section { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:14px 16px; }
+  h2 { margin:0 0 10px; font-size:14px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  table { width:100%; border-collapse:collapse; }
+  th { text-align:left; color:var(--muted); font-weight:500; font-size:12px; padding:6px 8px; border-bottom:1px solid var(--line); }
+  td { padding:8px; border-bottom:1px solid var(--line); white-space:nowrap; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; }
+  .bar { height:8px; background:#222b33; border-radius:4px; overflow:hidden; min-width:90px; }
+  .bar > i { display:block; height:100%; border-radius:4px; }
+  .chip { display:inline-block; padding:2px 9px; border-radius:999px; font-size:12px; font-weight:600; }
+  .ok { color:var(--ok); background:rgba(63,185,80,.12); } .warn { color:var(--warn); background:rgba(210,153,34,.12); }
+  .bad { color:var(--bad); background:rgba(248,81,73,.12); } .idle { color:var(--muted); background:rgba(139,152,165,.12); }
+  .machine { display:grid; grid-template-columns:1fr auto; gap:4px 10px; padding:8px 0; border-bottom:1px solid var(--line); }
+  .machine:last-child { border-bottom:0; }
+  .machine .job { color:var(--muted); font-size:12px; grid-column:1 / -1; }
+  footer { color:var(--muted); font-size:12px; padding:0 28px 20px; }
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Shop Floor Job Board</h1><div class="sub">Live from ERP + machine monitors &middot; refreshes every 60 s</div></div>
+  <div class="sub" id="stamp"></div>
+</header>
+<div class="kpis" id="kpis"></div>
+<main>
+  <section><h2>Open jobs</h2><table><thead><tr>
+    <th>Job</th><th>Part</th><th>Customer</th><th>Due</th><th>Progress</th><th class="num">Hours / quoted</th><th>Status</th>
+  </tr></thead><tbody id="jobs"></tbody></table></section>
+  <section><h2>Machines</h2><div id="machines"></div></section>
+</main>
+<footer>Portfolio sample &middot; all data is made up &middot; built with plain HTML/JS, fed by a Python ERP sync in production</footer>
+<script>
+// Sample data. In production this comes from a JSON endpoint fed by the ERP sync.
+const jobs = [
+  ["4512", "Cavity insert, 4-cav", "Kestrel Molding", "Nov 04", 92, 118, 120],
+  ["4518", "Core plate", "Bluewater Devices", "Nov 06", 71, 96, 110],
+  ["4521", "Slide assembly", "Kestrel Molding", "Nov 07", 55, 88, 80],
+  ["4523", "Ejector housing", "Northgate Medical", "Nov 10", 40, 52, 95],
+  ["4527", "Hot runner manifold", "Pinecrest Auto", "Nov 03", 83, 141, 120],
+  ["4530", "Lifter set", "Bluewater Devices", "Nov 14", 22, 18, 64],
+  ["4533", "EDM electrodes (12)", "Northgate Medical", "Nov 12", 60, 30, 48],
+  ["4536", "Mold base mods", "Pinecrest Auto", "Nov 18", 10, 6, 40],
+];
+const machines = [
+  ["Mill 1 (5-axis)", "run", "4512 cavity finish", 87], ["Mill 2", "run", "4518 core rough", 74],
+  ["Mill 3", "idle", "waiting on 4530 steel", 31], ["Sinker EDM", "run", "4533 electrodes", 92],
+  ["Wire EDM", "run", "4521 slide", 68], ["Grinder", "down", "spindle service", 0],
+  ["Lathe", "run", "4523 bushings", 55], ["CMM", "idle", "next: 4527 FAI", 40],
+];
+const status = j => { const [,,,, pct, hrs, quoted] = j;
+  if (hrs > quoted) return ["Over hours", "bad"];
+  if (hrs / quoted > pct / 100 + 0.15) return ["At risk", "warn"];
+  return ["On track", "ok"]; };
+const color = c => `var(--${c})`;
+
+document.getElementById("jobs").innerHTML = jobs.map(j => { const [s, c] = status(j);
+  return `<tr><td>${j[0]}</td><td>${j[1]}</td><td>${j[2]}</td><td>${j[3]}</td>
+    <td><div class="bar"><i style="width:${j[4]}%;background:${color(c)}"></i></div></td>
+    <td class="num">${j[5]} / ${j[6]}</td><td><span class="chip ${c}">${s}</span></td></tr>`; }).join("");
+
+const label = { run: ["Running", "ok"], idle: ["Idle", "idle"], down: ["Down", "bad"] };
+document.getElementById("machines").innerHTML = machines.map(([name, st, job, util]) => {
+  const [t, c] = label[st];
+  return `<div class="machine"><b>${name}</b><span class="chip ${c}">${t}</span>
+    <div class="job">${job} &middot; ${util}% utilized today</div></div>`; }).join("");
+
+const running = machines.filter(m => m[1] === "run").length;
+const onTrack = jobs.filter(j => status(j)[1] === "ok").length;
+const hours = jobs.reduce((s, j) => s + j[5], 0);
+document.getElementById("kpis").innerHTML = [
+  ["Open jobs", jobs.length], ["On track", `${Math.round(onTrack / jobs.length * 100)}%`],
+  ["Hours logged", hours], ["Machines running", `${running} / ${machines.length}`],
+].map(([l, v]) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div></div>`).join("");
+document.getElementById("stamp").textContent = "Updated Oct 30, 2:41 PM";
+</script>
+</body>
+</html>
